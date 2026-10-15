@@ -1,31 +1,26 @@
 import asyncio
-from core.mmap_ring_buffer import MMapRingBuffer
+from mmap_ring_buffer import MMapRingBuffer
 
-# Import Teammate 2's function when available (or mock it for testing)
-from core.firehose import firehouse 
-
-async def mock_firehose():
-    """Placeholder matching Teammate 2's firehouse async generator function."""
-    sample_orders = [
-        (201, 15100),
-        (202, 15150),
-        (203, 15080),
-    ]
-    for msg_id, val in sample_orders:
-        await asyncio.sleep(0.4)
-        yield {"msg_id": msg_id, "value": val}
+# Import Teammate 1's firehose async generator from the firehose package[cite: 7, 8]
+from firehose.firehose import firehose
 
 async def consume_firehose_to_mmap(ring_buffer: MMapRingBuffer):
     """
-    Consumes from Teammate 2's firehouse() async generator 
-    and writes to your mmap ring buffer.
+    Consumes orders from Teammate 1's firehose() async generator 
+    and writes them into your mmap ring buffer.
     """
-    print("Listening to firehose stream and writing to MMapRingBuffer...")
+    print("Listening to Teammate 1's firehose stream and writing to MMapRingBuffer...")
     
-    # Replace mock_firehose() with firehouse() once Teammate 2 merges their code
-    async for order in mock_firehose():
-        msg_id = order["msg_id"]
-        value = order["value"]
+    # Call the firehose async generator with specified rate and duration[cite: 7]
+    async for order in firehose(order_rate=500, duration=3):
+        # Extract fields based on the generated order structure
+        if isinstance(order, dict):
+            msg_id = order.get("order_id", 101)
+            value = int(order.get("price", 1000))
+        else:
+            # Fallback if order is returned as an object attribute
+            msg_id = getattr(order, "order_id", 101)
+            value = int(getattr(order, "price", 1000))
         
         # Write using your mmap ring buffer write method
         success = ring_buffer.write(msg_id, value)
@@ -36,10 +31,10 @@ async def consume_firehose_to_mmap(ring_buffer: MMapRingBuffer):
             print(f"[Buffer Overflow] Dropped Order ID: {msg_id}")
 
 if __name__ == "__main__":
-    # Initialize your mmap ring buffer (e.g., 1024 bytes)
-    buffer = MMapRingBuffer(size=1024)
+    # Initialize your mmap ring buffer
+    buffer = MMapRingBuffer(size=2048)
     
-    # Run the async ingestion loop
+    # Run the async ingestion loop connecting the firehose to the buffer
     asyncio.run(consume_firehose_to_mmap(buffer))
     
     # Read back what was ingested to test
